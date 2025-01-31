@@ -1,10 +1,8 @@
 import os
 import csv
 import random
-import heapq
 from datetime import datetime, timedelta
 import shutil
-
 
 # list of current stock exchange of interest
 se_dirs = ["LSE", "NASDAQ", "NYSE"]
@@ -30,13 +28,20 @@ def get_random_set_points(crt_dir, input_file):
     with open(file_path, newline='', encoding='utf-8') as f:
         stock_info = list(csv.reader(f))
 
-    #make sure that I have at least 10 data points from the random point
-    random_entry_day = random.randint(0, len(stock_info)-10)
+    if not stock_info:
+        print("This is an empty file")
+        return []
+    elif len(stock_info) < 10:
+        print("This file does not have at least 10 data points; not relevant enough")
+        return []
+    else:
+        #make sure that I have at least 10 data points starting from the random point
+        random_entry_day = random.randint(0, len(stock_info) - 10)
 
-    return stock_info[random_entry_day:random_entry_day + 10]
+        return stock_info[random_entry_day:random_entry_day + 10]
 
 
-def predict_stock(crt_dir, input_filename, data_points):
+def predict_stock(input_filename, data_points):
     # for the first predicted value, being only 10 values, we could just sort a tiny list
     # but for real case purposes, we could use a MAX-Heap - second highest value will be second in heap
 
@@ -50,7 +55,7 @@ def predict_stock(crt_dir, input_filename, data_points):
     
     n1_val = sorted([p[2] for p in data_points])[-2]
     n2_val = round(float(n1_val) + abs(float(data_points[-1][2]) - float(n1_val)) / 2 , 2)
-    n3_val = round(n2_val + (float(n1_val) - n2_val) / 4 , 2)
+    n3_val = round(n2_val + abs(float(n1_val) - n2_val) / 4 , 2)
 
     next_three_vals = [n1_val, n2_val, n3_val]
     
@@ -61,10 +66,9 @@ def predict_stock(crt_dir, input_filename, data_points):
     output_filename = "output_" + input_filename
     os.makedirs(output_dir_path, exist_ok=True)
     full_output_path = os.path.join(output_dir_path, output_filename)
+
     with open(full_output_path, mode='w', newline='') as f:
         writer = csv.writer(f)
-        
-        # Write multiple rows to the file
         writer.writerows(data_points)
 
 
@@ -91,7 +95,7 @@ if __name__ == "__main__":
             dirs_to_process = se_dirs
             break
 
-        # Check if the input is one of the available directories
+        # check if the input is one of the available directories
         if choice in se_dirs:
             dirs_to_process.append(choice)
             break
@@ -100,13 +104,16 @@ if __name__ == "__main__":
             continue
 
     if dirs_to_process:
+        # previous output cleanup
         shutil.rmtree(output_dir_path)
+
         for crt_dir in dirs_to_process:
             input_files = process_dir(crt_dir)
 
             if input_files:
                 for input_file in input_files:
                     random_set_points = get_random_set_points(crt_dir, input_file)
-                    predict_stock(crt_dir, input_file, random_set_points)
+                    if random_set_points:
+                        predict_stock(input_file, random_set_points)
             else:
                 print("No input CSV files in {0} dir.".format(crt_dir))
